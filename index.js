@@ -24,10 +24,10 @@ function appendFile(responseContent) {
 }
 
 function getQueueMessages(requestMessagesLength) {
-    var data = `{"vhost":"/","name":"${rabbitMqQueue}","truncate":"50000","ackmode":"ack_requeue_true","encoding":"auto","count":${requestMessagesLength}}`
+    var data = `{"vhost":"${process.env.RABBITMQ_API_V_HOST}","name":"${rabbitMqQueue}","truncate":"50000","ackmode":"ack_requeue_true","encoding":"auto","count":"${requestMessagesLength}"}`
     var config = {
         method: 'post',
-        url: `${baseUrl}/api/queues/%2F/${rabbitMqQueue}/get`,
+        url: `${baseUrl}/api/queues/${process.env.RABBITMQ_API_V_HOST}/${rabbitMqQueue}/get`,
         headers: {
             'authorization': 'Basic ' + authorizationToken,
             'x-vhost': ''
@@ -41,7 +41,7 @@ function getQueueMessages(requestMessagesLength) {
 function getQueueMessagesCount() {
     var config = {
         method: 'GET',
-        url: `${baseUrl}/api/queues/%2F/${rabbitMqQueue}`,
+        url: `${baseUrl}/api/queues/${process.env.RABBITMQ_API_V_HOST}/${rabbitMqQueue}`,
         headers: {
             'authorization': 'Basic ' + authorizationToken,
             'x-vhost': ''
