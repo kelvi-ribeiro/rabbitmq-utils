@@ -3,29 +3,32 @@ let path = require('path');
 const fs = require('fs');
 require("dotenv").config();
 var os = require("os");
-const rabbitMqQueue = process.env.RABBITMQ_QUEUE
-const baseUrl = process.env.RABBITMQ_API_BASE_URL
-const authorizationToken = process.env.RABBITMQ_API_AUTHORIZATION_TOKEN
+const rabbitMqQueue = process.env.RABBITMQ_QUEUE;
+const baseUrl = process.env.RABBITMQ_API_BASE_URL;
+const authorizationToken = process.env.RABBITMQ_API_AUTHORIZATION_TOKEN;
+const vhost = process.env.RABBITMQ_API_V_HOST;
 
-function main() {
-    getQueueMessagesCount()
-        .then(function (response) {
-            const queueLength = response.data.backing_queue_status.len
-            getQueueMessages(queueLength)
-                .then(function (response) {
-                    responseContent = response.data.map(d => JSON.stringify(JSON.parse(d.payload))).join(os.EOL)
-                    appendFile(responseContent)
-                })
-        })
-}
+const main = async () => {
+    const { data: { backing_queue_status: { len: queueLength } } } = await getQueueMessagesCount();
+    const { data: messages } = await getQueueMessages(queueLength);
+    const responseContent = messages.map(d => JSON.stringify(JSON.parse(d.payload))).join(os.EOL);
+    appendFile(responseContent);
+};
 
-function appendFile(responseContent) {
-    fs.appendFileSync(`${__dirname}${path.sep}${rabbitMqQueue}-messages.txt`, responseContent, { flags: 'w' })
-}
+const appendFile = (responseContent) =>
+    fs.appendFileSync(`${__dirname}${path.sep}${rabbitMqQueue}-messages.txt`, responseContent, { flags: 'a' });
 
-function getQueueMessages(requestMessagesLength) {
-    var data = `{"vhost":"${process.env.RABBITMQ_API_V_HOST}","name":"${rabbitMqQueue}","truncate":"50000","ackmode":"ack_requeue_true","encoding":"auto","count":"${requestMessagesLength}"}`
-    var config = {
+const getQueueMessages = (requestMessagesLength) => {
+    const data = JSON.stringify({
+        vhost,
+        name: rabbitMqQueue,
+        truncate: 50000,
+        ackmode: 'ack_requeue_true',
+        encoding: 'auto',
+        count: requestMessagesLength,
+    });
+
+    const config = {
         method: 'post',
         url: `${baseUrl}/api/queues/${process.env.RABBITMQ_API_V_HOST}/${rabbitMqQueue}/get`,
         headers: {
@@ -35,11 +38,11 @@ function getQueueMessages(requestMessagesLength) {
         data: data
     };
 
-    return axios(config)
-}
+    return axios(config);
+};
 
-function getQueueMessagesCount() {
-    var config = {
+const getQueueMessagesCount = () => {
+    const config = {
         method: 'GET',
         url: `${baseUrl}/api/queues/${process.env.RABBITMQ_API_V_HOST}/${rabbitMqQueue}`,
         headers: {
@@ -48,8 +51,7 @@ function getQueueMessagesCount() {
         },
     };
 
-    return axios(config)
-}
+    return axios(config);
+};
 
-
-main()
+main();
