@@ -9,14 +9,22 @@ const authorizationToken = process.env.RABBITMQ_API_AUTHORIZATION_TOKEN;
 const vhost = process.env.RABBITMQ_API_V_HOST;
 
 const main = async () => {
+    await createTempDir();
     const { data: { backing_queue_status: { len: queueLength } } } = await getQueueMessagesCount();
     const { data: messages } = await getQueueMessages(queueLength);
     const responseContent = messages.map(d => JSON.stringify(JSON.parse(d.payload))).join(os.EOL);
     appendFile(responseContent);
+    await removeTempDir();
 };
 
+const createTempDir = () =>
+    fs.mkdir(__dirname + path.sep + ".temp", { recursive: true }, () => { });
+
+const removeTempDir = () =>
+    fs.rm(__dirname + path.sep + ".temp", { recursive: true, force: true }, () => { });
+
 const appendFile = (responseContent) =>
-    fs.appendFileSync(`${__dirname}${path.sep}${rabbitMqQueue}-messages.txt`, responseContent, { flags: 'a' });
+    fs.appendFileSync(`${__dirname}${path.sep}.temp${path.sep}${rabbitMqQueue}-messages.txt`, responseContent, { flags: 'a' });
 
 const getQueueMessages = (requestMessagesLength) => {
     const data = JSON.stringify({
