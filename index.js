@@ -7,18 +7,19 @@ const rabbitMqQueue = process.env.RABBITMQ_QUEUE;
 const baseUrl = process.env.RABBITMQ_API_BASE_URL;
 const authorizationToken = process.env.RABBITMQ_API_AUTHORIZATION_TOKEN;
 const vhost = process.env.RABBITMQ_API_V_HOST;
-const maxGetMessagesCount = 1000;
+const maxMessagesFetch = process.env.RABBITMQ_MAX_MESSAGES_FETCH;
+
 const main = async () => {
     await createTempDir();
     const { data: { backing_queue_status: { len: queueLength } } } = await getQueueMessagesCount();
     let loopTimes = 1
 
-    if (queueLength > maxGetMessagesCount) {
-        loopTimes = Math.ceil(queueLength / maxGetMessagesCount);
+    if (queueLength > maxMessagesFetch) {
+        loopTimes = Math.ceil(queueLength / maxMessagesFetch);
     }
 
     for (let index = 0; index < loopTimes; index++) {
-        let { data: messages } = await getQueueMessages(maxGetMessagesCount);
+        let { data: messages } = await getQueueMessages(maxMessagesFetch);
         messages = messages.map(d => d.payload)
         const responseContent = messages.map(d => {
             if (isJson(d)) {
@@ -86,8 +87,11 @@ const getQueueMessagesCount = () => {
 };
 
 const publishMessages = async (messages) => {
-    for (const key in messages) {
-        await publishMessage(messages[key]);
+    funcs = messages.map(m => {
+        return () => publishMessage(m)
+    })
+    while (funcs.length) {
+        await Promise.all(funcs.splice(0, process.env.RABBTMQ_MAXIMUM_PUBLICATION_REQUESTS).map(f => f()))
     }
 }
 
@@ -117,5 +121,4 @@ const publishMessage = (message) => {
     return axios(config);
 };
 
-
-main();
+main()
