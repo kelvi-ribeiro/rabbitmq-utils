@@ -12,10 +12,10 @@ const moveMessages = async () => {
     }
 
     for (let index = 0; index < loopTimes; index++) {
-        let { data: messages } = await rabbitmqApi.getQueueMessages(process.env.RABBITMQ_MAX_MESSAGES_FETCH, true);
+        let { data: messages } = await rabbitmqApi.getQueueMessages(process.env.RABBITMQ_MAX_MESSAGES_FETCH);
         messages = messages.map(d => d.payload);
         await rabbitmqApi.publishMessages(messages);
-        await rabbitmqApi.getQueueMessages(process.env.RABBITMQ_MAX_MESSAGES_FETCH, false);
+        await rabbitmqApi.clearQueueMessages(process.env.RABBITMQ_MAX_MESSAGES_FETCH);
     }
 }
 

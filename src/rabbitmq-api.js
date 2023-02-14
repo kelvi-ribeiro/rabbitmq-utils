@@ -3,14 +3,18 @@ const axios = require('axios');
 
 const rabbitMqQueue = process.env.RABBITMQ_QUEUE;
 const baseUrl = process.env.RABBITMQ_API_BASE_URL;
-const authorizationToken = process.env.RABBITMQ_API_AUTHORIZATION_TOKEN;
 const vhost = process.env.RABBITMQ_API_V_HOST;
 
-const getQueueMessages = (requestMessagesLength, requeueMessages) => {
+const rabbitAuth = {
+    username: process.env.RABBITMQ_API_AUTH_USERNAME,
+    password: process.env.RABBITMQ_API_AUTH_PASSWORD
+}
+
+const getQueueMessages = (requestMessagesLength) => {
     const data = JSON.stringify({
         vhost,
         name: rabbitMqQueue,
-        ackmode: 'ack_requeue_' + requeueMessages,
+        ackmode: 'ack_requeue_true',
         encoding: 'auto',
         count: requestMessagesLength,
     });
@@ -19,10 +23,32 @@ const getQueueMessages = (requestMessagesLength, requeueMessages) => {
         method: 'post',
         url: `${baseUrl}/api/queues/${process.env.RABBITMQ_API_V_HOST}/${rabbitMqQueue}/get`,
         headers: {
-            'authorization': 'Basic ' + authorizationToken,
             'x-vhost': ''
         },
-        data
+        data,
+        auth: rabbitAuth
+    };
+
+    return axios(config);
+};
+
+const clearQueueMessages = (numberOfMessagesToClear) => {
+    const data = JSON.stringify({
+        vhost,
+        name: rabbitMqQueue,
+        ackmode: 'ack_requeue_false',
+        encoding: 'auto',
+        count: numberOfMessagesToClear,
+    });
+
+    const config = {
+        method: 'post',
+        url: `${baseUrl}/api/queues/${process.env.RABBITMQ_API_V_HOST}/${rabbitMqQueue}/get`,
+        headers: {
+            'x-vhost': ''
+        },
+        data,
+        auth: rabbitAuth
     };
 
     return axios(config);
@@ -33,9 +59,9 @@ const getQueueMessagesCount = () => {
         method: 'GET',
         url: `${baseUrl}/api/queues/${process.env.RABBITMQ_API_V_HOST}/${rabbitMqQueue}`,
         headers: {
-            'authorization': 'Basic ' + authorizationToken,
             'x-vhost': ''
         },
+        auth: rabbitAuth
     };
 
     return axios(config);
@@ -67,10 +93,10 @@ const publishMessage = (message) => {
         method: 'POST',
         url: `${baseUrl}/api/exchanges/${process.env.RABBITMQ_API_V_HOST}/amq.default/publish`,
         headers: {
-            'authorization': 'Basic ' + authorizationToken,
             'x-vhost': ''
         },
-        data
+        data,
+        auth: rabbitAuth
     };
 
     return axios(config);
@@ -80,5 +106,6 @@ module.exports = {
     getQueueMessages,
     getQueueMessagesCount,
     publishMessages,
-    publishMessage
+    publishMessage,
+    clearQueueMessages
 }
