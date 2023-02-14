@@ -1,61 +1,16 @@
-var axios = require('axios');
-let path = require('path');
-const fs = require('fs');
 require("dotenv").config();
-var os = require("os");
+const axios = require('axios');
+
 const rabbitMqQueue = process.env.RABBITMQ_QUEUE;
 const baseUrl = process.env.RABBITMQ_API_BASE_URL;
 const authorizationToken = process.env.RABBITMQ_API_AUTHORIZATION_TOKEN;
 const vhost = process.env.RABBITMQ_API_V_HOST;
-const maxMessagesFetch = process.env.RABBITMQ_MAX_MESSAGES_FETCH;
 
-const main = async () => {
-    await createTempDir();
-    const { data: { backing_queue_status: { len: queueLength } } } = await getQueueMessagesCount();
-    let loopTimes = 1
-
-    if (queueLength > maxMessagesFetch) {
-        loopTimes = Math.ceil(queueLength / maxMessagesFetch);
-    }
-
-    for (let index = 0; index < loopTimes; index++) {
-        let { data: messages } = await getQueueMessages(maxMessagesFetch);
-        messages = messages.map(d => d.payload)
-        const responseContent = messages.map(d => {
-            if (isJson(d)) {
-                return JSON.stringify(JSON.parse(d));
-            }
-            return d;
-        }).join(os.EOL);
-        appendFile(responseContent);
-        await publishMessages(messages);
-    }
-    removeTempDir()
-};
-
-const createTempDir = () =>
-    fs.mkdir(__dirname + path.sep + ".temp", { recursive: true }, () => { });
-
-const removeTempDir = () =>
-    fs.rm(__dirname + path.sep + ".temp", { recursive: true, force: true }, () => { });
-
-const appendFile = (responseContent) =>
-    fs.appendFileSync(`${__dirname}${path.sep}.temp${path.sep}${rabbitMqQueue}-messages.txt`, responseContent, { flags: 'a' });
-
-const isJson = (str) => {
-    try {
-        JSON.parse(str);
-    } catch (e) {
-        return false;
-    }
-    return true;
-}
-
-const getQueueMessages = (requestMessagesLength) => {
+const getQueueMessages = (requestMessagesLength, requeueMessages) => {
     const data = JSON.stringify({
         vhost,
         name: rabbitMqQueue,
-        ackmode: 'ack_requeue_false',
+        ackmode: 'ack_requeue_' + requeueMessages,
         encoding: 'auto',
         count: requestMessagesLength,
     });
@@ -67,7 +22,7 @@ const getQueueMessages = (requestMessagesLength) => {
             'authorization': 'Basic ' + authorizationToken,
             'x-vhost': ''
         },
-        data: data
+        data
     };
 
     return axios(config);
@@ -121,4 +76,9 @@ const publishMessage = (message) => {
     return axios(config);
 };
 
-main()
+module.exports = {
+    getQueueMessages,
+    getQueueMessagesCount,
+    publishMessages,
+    publishMessage
+}
